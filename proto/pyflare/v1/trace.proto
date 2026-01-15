@@ -1,0 +1,185 @@
+// Copyright 2024 PyFlare Contributors
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package pyflare.v1;
+
+import "pyflare/v1/common.proto";
+
+option cc_enable_arenas = true;
+
+// A collection of spans from a resource
+message ResourceSpans {
+  Resource resource = 1;
+  repeated ScopeSpans scope_spans = 2;
+  string schema_url = 3;
+}
+
+// A collection of spans from an instrumentation scope
+message ScopeSpans {
+  InstrumentationScope scope = 1;
+  repeated Span spans = 2;
+  string schema_url = 3;
+}
+
+// A span represents a single operation within a trace
+message Span {
+  // Unique identifier for this span (8 bytes)
+  bytes trace_id = 1;
+
+  // Unique identifier for this span within the trace (8 bytes)
+  bytes span_id = 2;
+
+  // The trace_state provides additional vendor-specific trace identification
+  string trace_state = 3;
+
+  // Parent span id (empty if this is a root span)
+  bytes parent_span_id = 4;
+
+  // A description of the span's operation
+  string name = 5;
+
+  // Distinguishes between spans generated in a particular context
+  SpanKind kind = 6;
+
+  // Start time in nanoseconds since Unix epoch
+  fixed64 start_time_unix_nano = 7;
+
+  // End time in nanoseconds since Unix epoch
+  fixed64 end_time_unix_nano = 8;
+
+  // Attributes associated with this span
+  repeated KeyValue attributes = 9;
+
+  // Number of attributes that were dropped due to limits
+  uint32 dropped_attributes_count = 10;
+
+  // Events associated with this span
+  repeated Event events = 11;
+
+  // Number of events that were dropped
+  uint32 dropped_events_count = 12;
+
+  // Links to other spans
+  repeated Link links = 13;
+
+  // Number of links that were dropped
+  uint32 dropped_links_count = 14;
+
+  // Status of this span
+  Status status = 15;
+
+  // ML-specific attributes (PyFlare extension)
+  MLAttributes ml_attributes = 100;
+}
+
+// SpanKind distinguishes between spans
+enum SpanKind {
+  SPAN_KIND_UNSPECIFIED = 0;
+  SPAN_KIND_INTERNAL = 1;
+  SPAN_KIND_SERVER = 2;
+  SPAN_KIND_CLIENT = 3;
+  SPAN_KIND_PRODUCER = 4;
+  SPAN_KIND_CONSUMER = 5;
+}
+
+// Event associated with a span
+message Event {
+  // Time of the event in nanoseconds since Unix epoch
+  fixed64 time_unix_nano = 1;
+
+  // Name of the event
+  string name = 2;
+
+  // Attributes associated with this event
+  repeated KeyValue attributes = 3;
+
+  // Number of dropped attributes
+  uint32 dropped_attributes_count = 4;
+}
+
+// Link to another span
+message Link {
+  bytes trace_id = 1;
+  bytes span_id = 2;
+  string trace_state = 3;
+  repeated KeyValue attributes = 4;
+  uint32 dropped_attributes_count = 5;
+}
+
+// PyFlare-specific ML attributes
+message MLAttributes {
+  // Model identification
+  string model_id = 1;
+  string model_version = 2;
+  string model_provider = 3;
+
+  // Inference type
+  InferenceType inference_type = 4;
+
+  // Token usage (for LLMs)
+  TokenUsage token_usage = 5;
+
+  // Input/output previews (truncated for storage)
+  string input_preview = 6;
+  string output_preview = 7;
+
+  // Hash of input for deduplication analysis
+  string input_hash = 8;
+
+  // Cost in micro-dollars
+  uint64 cost_micros = 9;
+
+  // Embedding dimensions (for embedding models)
+  uint32 embedding_dimensions = 10;
+
+  // Custom ML attributes
+  repeated KeyValue custom_attributes = 11;
+}
+
+// Type of ML inference
+enum InferenceType {
+  INFERENCE_TYPE_UNSPECIFIED = 0;
+  INFERENCE_TYPE_LLM = 1;
+  INFERENCE_TYPE_EMBEDDING = 2;
+  INFERENCE_TYPE_CLASSIFICATION = 3;
+  INFERENCE_TYPE_REGRESSION = 4;
+  INFERENCE_TYPE_OBJECT_DETECTION = 5;
+  INFERENCE_TYPE_SEGMENTATION = 6;
+  INFERENCE_TYPE_GENERATION = 7;
+  INFERENCE_TYPE_CUSTOM = 8;
+}
+
+// Token usage for LLM inference
+message TokenUsage {
+  uint32 input_tokens = 1;
+  uint32 output_tokens = 2;
+  uint32 total_tokens = 3;
+}
+
+// Batch of spans for Kafka transport
+message SpanBatch {
+  repeated ResourceSpans resource_spans = 1;
+
+  // Metadata
+  string source_collector = 2;
+  fixed64 batch_timestamp_unix_nano = 3;
+  uint32 span_count = 4;
+}
+
+// Export request (matches OTLP)
+message ExportTraceServiceRequest {
+  repeated ResourceSpans resource_spans = 1;
+}
+
+// Export response
+message ExportTraceServiceResponse {
+  PartialSuccess partial_success = 1;
+}
+
+// Partial success response
+message PartialSuccess {
+  int64 rejected_spans = 1;
+  string error_message = 2;
+}

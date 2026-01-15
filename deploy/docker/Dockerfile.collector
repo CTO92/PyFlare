@@ -1,0 +1,101 @@
+# PyFlare Collector Dockerfile
+# Multi-stage build for minimal runtime image
+
+# Build stage
+FROM ubuntu:22.04 AS builder
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    cmake \
+    ninja-build \
+    git \
+    pkg-config \
+    curl \
+    zip \
+    unzip \
+    tar \
+    libssl-dev \
+    libsasl2-dev \
+    libzstd-dev \
+    liblz4-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install vcpkg
+ENV VCPKG_ROOT=/opt/vcpkg
+RUN git clone https://github.com/Microsoft/vcpkg.git $VCPKG_ROOT \
+    && $VCPKG_ROOT/bootstrap-vcpkg.sh
+
+# Install dependencies via vcpkg
+RUN $VCPKG_ROOT/vcpkg install \
+    abseil \
+    spdlog \
+    nlohmann-json \
+    yaml-cpp \
+    cli11 \
+    gtest
+
+# Optional: Install gRPC and librdkafka for full functionality
+# Uncomment these for production builds with full features
+# RUN $VCPKG_ROOT/vcpkg install grpc rdkafka cpp-httplib
+
+WORKDIR /build
+
+# Copy source files
+COPY CMakeLists.txt vcpkg.json ./
+COPY src/ ./src/
+COPY proto/ ./proto/
+COPY config/ ./config/
+
+# Configure and build
+RUN cmake -B build -G Ninja \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_TOOLCHAIN_FILE=$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake \
+    -DPYFLARE_BUILD_TESTS=OFF \
+    && cmake --build build --target pyflare_collector
+
+# Runtime stage
+FROM ubuntu:22.04 AS runtime
+
+# Install minimal runtime dependencies
+RUN apt-get update && apt-get install -y \
+    libssl3 \
+    libsasl2-2 \
+    libzstd1 \
+    liblz4-1 \
+    libstdc++6 \
+    curl \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create non-root user for security
+RUN groupadd -r pyflare && useradd -r -g pyflare pyflare
+
+WORKDIR /app
+
+# Copy binary
+COPY --from=builder /build/build/bin/pyflare_collector /app/
+
+# Copy default configuration
+COPY --from=builder /build/config/collector.yaml /app/config/
+
+# Set ownership
+RUN chown -R pyflare:pyflare /app
+
+USER pyflare
+
+# Environment variables
+ENV PYFLARE_LOG_LEVEL=info
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:4318/health || exit 1
+
+# Expose ports
+# 4317: gRPC OTLP
+# 4318: HTTP OTLP
+# 8081: Health/metrics
+EXPOSE 4317 4318 8081
+
+ENTRYPOINT ["/app/pyflare_collector"]
+CMD ["--config", "/app/config/collector.yaml"]

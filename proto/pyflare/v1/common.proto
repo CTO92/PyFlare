@@ -1,0 +1,64 @@
+// Copyright 2024 PyFlare Contributors
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package pyflare.v1;
+
+option cc_enable_arenas = true;
+
+// Attribute value that can hold different types
+message AttributeValue {
+  oneof value {
+    string string_value = 1;
+    bool bool_value = 2;
+    int64 int_value = 3;
+    double double_value = 4;
+    ArrayValue array_value = 5;
+    KeyValueList kvlist_value = 6;
+    bytes bytes_value = 7;
+  }
+}
+
+// Array of attribute values
+message ArrayValue {
+  repeated AttributeValue values = 1;
+}
+
+// List of key-value pairs
+message KeyValueList {
+  repeated KeyValue values = 1;
+}
+
+// Key-value pair
+message KeyValue {
+  string key = 1;
+  AttributeValue value = 2;
+}
+
+// Resource information
+message Resource {
+  repeated KeyValue attributes = 1;
+  uint32 dropped_attributes_count = 2;
+}
+
+// Instrumentation scope
+message InstrumentationScope {
+  string name = 1;
+  string version = 2;
+  repeated KeyValue attributes = 3;
+  uint32 dropped_attributes_count = 4;
+}
+
+// Status of a span
+message Status {
+  // Status codes following OpenTelemetry conventions
+  enum StatusCode {
+    STATUS_CODE_UNSET = 0;
+    STATUS_CODE_OK = 1;
+    STATUS_CODE_ERROR = 2;
+  }
+
+  string message = 1;
+  StatusCode code = 2;
+}

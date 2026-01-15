@@ -1,0 +1,267 @@
+# PyFlare Production Docker Compose
+# =================================
+# SECURITY: This configuration REQUIRES authentication for all services.
+# Use this file for production deployments.
+#
+# Usage:
+#   cp .env.example .env.prod
+#   # Edit .env.prod with secure credentials
+#   docker-compose -f docker-compose.prod.yml --env-file .env.prod up -d
+#
+# IMPORTANT: All passwords and API keys are REQUIRED in this configuration.
+
+version: "3.8"
+
+services:
+  # PyFlare Collector
+  collector:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.collector
+    ports:
+      - "4317:4317"  # gRPC
+      - "4318:4318"  # HTTP
+    environment:
+      - PYFLARE_LOG_LEVEL=${PYFLARE_LOG_LEVEL:-info}
+      - PYFLARE_KAFKA_BROKERS=kafka:9093
+      - PYFLARE_KAFKA_SASL_USERNAME=${KAFKA_SASL_USERNAME:?KAFKA_SASL_USERNAME must be set}
+      - PYFLARE_KAFKA_SASL_PASSWORD=${KAFKA_SASL_PASSWORD:?KAFKA_SASL_PASSWORD must be set}
+      # TLS configuration (REQUIRED for production)
+      - PYFLARE_TLS_ENABLED=${PYFLARE_TLS_ENABLED:-true}
+      - PYFLARE_TLS_CERT_PATH=${PYFLARE_TLS_CERT_PATH:?PYFLARE_TLS_CERT_PATH must be set}
+      - PYFLARE_TLS_KEY_PATH=${PYFLARE_TLS_KEY_PATH:?PYFLARE_TLS_KEY_PATH must be set}
+    volumes:
+      - ${PYFLARE_TLS_CERT_HOST_PATH:-./certs}:/app/certs:ro
+    depends_on:
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4318/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+
+  # PyFlare Processor
+  processor:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.processor
+    environment:
+      - PYFLARE_LOG_LEVEL=${PYFLARE_LOG_LEVEL:-info}
+      - PYFLARE_KAFKA_BROKERS=kafka:9093
+      - PYFLARE_KAFKA_SASL_USERNAME=${KAFKA_SASL_USERNAME:?KAFKA_SASL_USERNAME must be set}
+      - PYFLARE_KAFKA_SASL_PASSWORD=${KAFKA_SASL_PASSWORD:?KAFKA_SASL_PASSWORD must be set}
+      - PYFLARE_CLICKHOUSE_HOST=clickhouse
+      - PYFLARE_CLICKHOUSE_USER=${CLICKHOUSE_USER:-pyflare}
+      - PYFLARE_CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD:?CLICKHOUSE_PASSWORD must be set}
+      - PYFLARE_QDRANT_HOST=qdrant
+      - PYFLARE_QDRANT_API_KEY=${QDRANT_API_KEY:?QDRANT_API_KEY must be set}
+      - PYFLARE_REDIS_HOST=redis
+      - PYFLARE_REDIS_PASSWORD=${REDIS_PASSWORD:?REDIS_PASSWORD must be set}
+    depends_on:
+      kafka:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+      redis:
+        condition: service_started
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+
+  # PyFlare Query API
+  query-api:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.query
+    ports:
+      - "8080:8080"
+    environment:
+      - PYFLARE_LOG_LEVEL=${PYFLARE_LOG_LEVEL:-info}
+      - PYFLARE_CLICKHOUSE_HOST=clickhouse
+      - PYFLARE_CLICKHOUSE_USER=${CLICKHOUSE_USER:-pyflare}
+      - PYFLARE_CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD:?CLICKHOUSE_PASSWORD must be set}
+      - PYFLARE_QDRANT_HOST=qdrant
+      - PYFLARE_QDRANT_API_KEY=${QDRANT_API_KEY:?QDRANT_API_KEY must be set}
+      - PYFLARE_REDIS_HOST=redis
+      - PYFLARE_REDIS_PASSWORD=${REDIS_PASSWORD:?REDIS_PASSWORD must be set}
+      # API Authentication (REQUIRED)
+      - PYFLARE_API_REQUIRE_AUTH=true
+      - PYFLARE_API_MASTER_KEY=${PYFLARE_API_MASTER_KEY:?PYFLARE_API_MASTER_KEY must be set}
+      # CORS (configure for your domain)
+      - PYFLARE_API_ALLOWED_ORIGINS=${PYFLARE_API_ALLOWED_ORIGINS:-}
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+      redis:
+        condition: service_started
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+
+  # PyFlare Web UI
+  ui:
+    build:
+      context: ../../ui
+      dockerfile: ../deploy/docker/Dockerfile.ui
+    ports:
+      - "3000:80"
+    environment:
+      - VITE_API_URL=${PYFLARE_API_URL:-http://query-api:8080/api/v1}
+    depends_on:
+      - query-api
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/cache/nginx
+      - /var/run
+
+  # Infrastructure Services
+
+  # Kafka with SASL authentication (KRaft mode)
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    ports:
+      - "9093:9093"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      # SECURITY: Use SASL_PLAINTEXT for internal, SASL_SSL for external
+      KAFKA_LISTENERS: SASL_PLAINTEXT://0.0.0.0:9093,CONTROLLER://0.0.0.0:9094
+      KAFKA_ADVERTISED_LISTENERS: SASL_PLAINTEXT://kafka:9093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9094
+      KAFKA_INTER_BROKER_LISTENER_NAME: SASL_PLAINTEXT
+      # SASL Configuration
+      KAFKA_SASL_ENABLED_MECHANISMS: PLAIN
+      KAFKA_SASL_MECHANISM_INTER_BROKER_PROTOCOL: PLAIN
+      KAFKA_LISTENER_NAME_SASL__PLAINTEXT_PLAIN_SASL_JAAS_CONFIG: |
+        org.apache.kafka.common.security.plain.PlainLoginModule required
+        username="${KAFKA_SASL_USERNAME}"
+        password="${KAFKA_SASL_PASSWORD}"
+        user_${KAFKA_SASL_USERNAME}="${KAFKA_SASL_PASSWORD}";
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_LOG_RETENTION_HOURS: 168
+      CLUSTER_ID: ${KAFKA_CLUSTER_ID:?KAFKA_CLUSTER_ID must be set}
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9093", "--list", "--command-config", "/etc/kafka/client.properties"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+
+  # ClickHouse with authentication
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.1
+    ports:
+      - "9000:9000"
+      - "8123:8123"
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+      - ./clickhouse/init:/docker-entrypoint-initdb.d:ro
+      - ./clickhouse/users.xml:/etc/clickhouse-server/users.d/users.xml:ro
+    environment:
+      CLICKHOUSE_DB: ${CLICKHOUSE_DB:-pyflare}
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-pyflare}
+      # SECURITY: Password REQUIRED
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:?CLICKHOUSE_PASSWORD must be set}
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8123/ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+
+  # Qdrant with API key authentication
+  qdrant:
+    image: qdrant/qdrant:v1.7.0
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    environment:
+      # SECURITY: API key REQUIRED
+      QDRANT__SERVICE__API_KEY: ${QDRANT_API_KEY:?QDRANT_API_KEY must be set}
+      # Enable TLS for production
+      QDRANT__SERVICE__ENABLE_TLS: ${QDRANT_ENABLE_TLS:-false}
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+
+  # Redis with password authentication
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    # SECURITY: Password REQUIRED
+    command: >
+      redis-server
+      --appendonly yes
+      --requirepass "${REDIS_PASSWORD:?REDIS_PASSWORD must be set}"
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  kafka_data:
+  clickhouse_data:
+  qdrant_data:
+  redis_data:
+
+networks:
+  default:
+    name: pyflare-network
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.enable_icc: "true"

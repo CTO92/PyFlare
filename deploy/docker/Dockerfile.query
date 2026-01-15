@@ -1,0 +1,47 @@
+# PyFlare Query API Dockerfile
+
+# Build stage
+FROM ubuntu:22.04 AS builder
+
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    cmake \
+    ninja-build \
+    git \
+    pkg-config \
+    libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /build
+
+COPY CMakeLists.txt ./
+COPY src/ ./src/
+
+RUN cmake -B build -G Ninja \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DPYFLARE_BUILD_TESTS=OFF \
+    && cmake --build build
+
+# Runtime stage
+FROM ubuntu:22.04
+
+RUN apt-get update && apt-get install -y \
+    libssl3 \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY --from=builder /build/build/lib/*.so* /app/lib/
+COPY --from=builder /build/build/bin/* /app/
+
+ENV LD_LIBRARY_PATH=/app/lib
+ENV PYFLARE_LOG_LEVEL=info
+
+EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8080/health || exit 1
+
+ENTRYPOINT ["/app/pyflare_query"]
+CMD ["--listen", "0.0.0.0:8080"]

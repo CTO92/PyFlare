@@ -1,0 +1,80 @@
+# PyFlare clang-format configuration
+# Based on Google style with modifications
+
+Language: Cpp
+BasedOnStyle: Google
+
+# Line width
+ColumnLimit: 100
+
+# Indentation
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+IndentCaseLabels: true
+IndentPPDirectives: BeforeHash
+NamespaceIndentation: None
+
+# Braces
+BreakBeforeBraces: Attach
+AllowShortBlocksOnASingleLine: Empty
+AllowShortFunctionsOnASingleLine: Empty
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+
+# Alignment
+AlignAfterOpenBracket: Align
+AlignConsecutiveAssignments: false
+AlignConsecutiveDeclarations: false
+AlignEscapedNewlines: Left
+AlignOperands: true
+AlignTrailingComments: true
+
+# Packing
+BinPackArguments: true
+BinPackParameters: true
+PackConstructorInitializers: NextLine
+
+# Breaks
+AllowAllParametersOfDeclarationOnNextLine: true
+BreakBeforeBinaryOperators: None
+BreakBeforeTernaryOperators: true
+BreakConstructorInitializers: BeforeColon
+BreakStringLiterals: true
+
+# Spaces
+SpaceAfterCStyleCast: false
+SpaceAfterTemplateKeyword: true
+SpaceBeforeAssignmentOperators: true
+SpaceBeforeParens: ControlStatements
+SpaceInEmptyParentheses: false
+SpacesBeforeTrailingComments: 2
+SpacesInAngles: false
+SpacesInCStyleCastParentheses: false
+SpacesInContainerLiterals: false
+SpacesInParentheses: false
+SpacesInSquareBrackets: false
+
+# Other
+DerivePointerAlignment: false
+PointerAlignment: Left
+ReflowComments: true
+SortIncludes: CaseSensitive
+SortUsingDeclarations: true
+IncludeBlocks: Regroup
+IncludeCategories:
+  # Headers in <> with extension
+  - Regex: '<[[:alnum:]_/]+\.(h|hpp)>'
+    Priority: 4
+  # Headers in <> without extension (C++ standard library)
+  - Regex: '<[[:alnum:]_/]+>'
+    Priority: 3
+  # Project headers
+  - Regex: '"[[:alnum:]_/]+\.(h|hpp)"'
+    Priority: 2
+  # Local headers
+  - Regex: '".+"'
+    Priority: 1
+
+# Modern C++ features
+Standard: c++20

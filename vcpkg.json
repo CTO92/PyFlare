@@ -1,0 +1,61 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+  "name": "pyflare",
+  "version": "0.1.0",
+  "description": "OpenTelemetry-native observability platform for AI/ML workloads",
+  "homepage": "https://github.com/pyflare/pyflare",
+  "license": "Apache-2.0",
+  "dependencies": [
+    {
+      "name": "opentelemetry-cpp",
+      "version>=": "1.14.0",
+      "features": ["otlp-grpc", "otlp-http"]
+    },
+    {
+      "name": "clickhouse-cpp",
+      "version>=": "2.5.0"
+    },
+    {
+      "name": "librdkafka",
+      "version>=": "2.3.0"
+    },
+    {
+      "name": "grpc",
+      "version>=": "1.60.0"
+    },
+    {
+      "name": "protobuf",
+      "version>=": "25.0"
+    },
+    {
+      "name": "abseil",
+      "version>=": "20240116"
+    },
+    {
+      "name": "nlohmann-json",
+      "version>=": "3.11.0"
+    },
+    {
+      "name": "spdlog",
+      "version>=": "1.13.0"
+    },
+    {
+      "name": "fmt",
+      "version>=": "10.2.0"
+    },
+    {
+      "name": "yaml-cpp",
+      "version>=": "0.8.0"
+    },
+    {
+      "name": "gtest",
+      "version>=": "1.14.0"
+    },
+    {
+      "name": "benchmark",
+      "version>=": "1.8.0"
+    }
+  ],
+  "builtin-baseline": "c82f74667287d3dc386bce81e44964370c91a289",
+  "overrides": []
+}

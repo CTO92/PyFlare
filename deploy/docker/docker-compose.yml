@@ -1,0 +1,191 @@
+version: "3.8"
+
+# =============================================================================
+# DEVELOPMENT CONFIGURATION - NOT FOR PRODUCTION USE
+# =============================================================================
+#
+# SECURITY WARNING: This compose file is intended for local development only.
+# It allows optional authentication to simplify local testing.
+#
+# For production deployments, use docker-compose.prod.yml which:
+# - REQUIRES authentication for all services
+# - Enables TLS by default
+# - Enforces resource limits
+# - Runs containers as non-root with read-only filesystems
+#
+# Production usage:
+#   docker-compose -f docker-compose.prod.yml --env-file .env.prod up -d
+#
+# =============================================================================
+#
+# SECURITY: This compose file uses environment variables for sensitive values.
+# Copy .env.example to .env and configure your credentials before running.
+# NEVER commit .env files to version control.
+
+services:
+  # PyFlare Collector
+  collector:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.collector
+    ports:
+      - "4317:4317"  # gRPC
+      - "4318:4318"  # HTTP
+    environment:
+      - PYFLARE_LOG_LEVEL=${PYFLARE_LOG_LEVEL:-info}
+      - PYFLARE_KAFKA_BROKERS=kafka:9092
+      # TLS configuration (optional)
+      - PYFLARE_TLS_ENABLED=${PYFLARE_TLS_ENABLED:-false}
+      - PYFLARE_TLS_CERT_PATH=${PYFLARE_TLS_CERT_PATH:-}
+      - PYFLARE_TLS_KEY_PATH=${PYFLARE_TLS_KEY_PATH:-}
+    depends_on:
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4318/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # PyFlare Processor
+  processor:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.processor
+    environment:
+      - PYFLARE_LOG_LEVEL=${PYFLARE_LOG_LEVEL:-info}
+      - PYFLARE_KAFKA_BROKERS=kafka:9092
+      - PYFLARE_CLICKHOUSE_HOST=clickhouse
+      - PYFLARE_CLICKHOUSE_USER=${CLICKHOUSE_USER:-pyflare}
+      - PYFLARE_CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD:?CLICKHOUSE_PASSWORD must be set}
+      - PYFLARE_QDRANT_HOST=qdrant
+      - PYFLARE_QDRANT_API_KEY=${QDRANT_API_KEY:-}
+    depends_on:
+      kafka:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+
+  # PyFlare Query API
+  query-api:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.query
+    ports:
+      - "8080:8080"
+    environment:
+      - PYFLARE_LOG_LEVEL=${PYFLARE_LOG_LEVEL:-info}
+      - PYFLARE_CLICKHOUSE_HOST=clickhouse
+      - PYFLARE_CLICKHOUSE_USER=${CLICKHOUSE_USER:-pyflare}
+      - PYFLARE_CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD:?CLICKHOUSE_PASSWORD must be set}
+      - PYFLARE_QDRANT_HOST=qdrant
+      - PYFLARE_QDRANT_API_KEY=${QDRANT_API_KEY:-}
+      - PYFLARE_REDIS_HOST=redis
+      - PYFLARE_REDIS_PASSWORD=${REDIS_PASSWORD:-}
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+      redis:
+        condition: service_started
+
+  # PyFlare Web UI
+  ui:
+    build:
+      context: ../../ui
+      dockerfile: ../deploy/docker/Dockerfile.ui
+    ports:
+      - "3000:80"
+    environment:
+      - VITE_API_URL=http://query-api:8080/api/v1
+    depends_on:
+      - query-api
+
+  # Infrastructure Services
+
+  # Kafka (KRaft mode - no Zookeeper)
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_LOG_RETENTION_HOURS: 168
+      CLUSTER_ID: ${KAFKA_CLUSTER_ID:-pyflare-local-cluster}
+    healthcheck:
+      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+  # ClickHouse
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.1
+    ports:
+      - "9000:9000"
+      - "8123:8123"
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+      - ./clickhouse/init:/docker-entrypoint-initdb.d
+    environment:
+      CLICKHOUSE_DB: ${CLICKHOUSE_DB:-pyflare}
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-pyflare}
+      # SECURITY: Password MUST be provided via environment variable
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:?CLICKHOUSE_PASSWORD must be set}
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8123/ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Qdrant
+  qdrant:
+    image: qdrant/qdrant:v1.7.0
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    environment:
+      # SECURITY: API key for production deployments
+      QDRANT__SERVICE__API_KEY: ${QDRANT_API_KEY:-}
+
+  # Redis
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    # SECURITY: Password protection for Redis
+    command: >
+      sh -c '
+        if [ -n "$REDIS_PASSWORD" ]; then
+          redis-server --appendonly yes --requirepass "$REDIS_PASSWORD"
+        else
+          redis-server --appendonly yes
+        fi
+      '
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+
+volumes:
+  clickhouse_data:
+  qdrant_data:
+  redis_data:
+
+networks:
+  default:
+    name: pyflare-network

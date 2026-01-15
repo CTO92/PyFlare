@@ -1,0 +1,145 @@
+# PyFlare Collector Configuration
+# This file configures the OTLP collector for AI/ML observability
+#
+# SECURITY NOTICE: Review all settings before deploying to production.
+# See docs/SECURITY_AUDIT.md for security recommendations.
+
+# OTLP Receiver Configuration
+receiver:
+  grpc:
+    endpoint: "0.0.0.0:4317"
+    max_recv_msg_size_bytes: 16777216  # 16 MB
+    max_concurrent_streams: 100
+    enable_reflection: true
+    keepalive:
+      time_seconds: 30
+      timeout_seconds: 10
+      permit_without_stream: true
+
+    # TLS Configuration (RECOMMENDED for production)
+    # Generate certificates: openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem -days 365
+    tls:
+      enabled: false  # Set to true in production
+      cert_path: ""   # /path/to/server.crt
+      key_path: ""    # /path/to/server.key
+      ca_cert_path: "" # /path/to/ca.crt (for mTLS)
+      require_client_cert: false  # Enable for mutual TLS
+
+  http:
+    endpoint: "0.0.0.0:4318"
+    max_request_body_bytes: 16777216  # 16 MB
+    read_timeout_seconds: 30
+    write_timeout_seconds: 30
+
+    # CORS Configuration (SECURITY: Restrict in production)
+    cors:
+      # For development: ["*"]
+      # For production: ["https://your-domain.com", "https://app.your-domain.com"]
+      allowed_origins: []  # Empty = deny all cross-origin requests
+      allowed_methods: ["POST", "GET", "OPTIONS"]
+      allowed_headers: ["Content-Type", "Authorization"]
+      allow_credentials: false
+
+    # TLS Configuration (RECOMMENDED for production)
+    tls:
+      enabled: false
+      cert_path: ""
+      key_path: ""
+
+# Rate Limiting (SECURITY: Prevent DoS attacks)
+rate_limit:
+  enabled: true
+  requests_per_second: 1000.0  # Global limit
+  per_ip_requests_per_second: 100.0  # Per-client limit
+  burst_size: 100  # Allow burst above rate
+
+# JSON Parsing Limits (SECURITY: Prevent stack exhaustion)
+json_limits:
+  max_depth: 32  # Maximum nesting depth
+  max_string_length: 1048576  # 1 MB per string
+  max_array_elements: 10000
+
+# Batching Configuration
+batcher:
+  max_batch_size: 512
+  max_batch_timeout_ms: 5000
+  max_queue_size: 10000
+  num_workers: 4
+
+# Sampling Configuration
+sampler:
+  # Options: always_on, always_off, probabilistic, rate_limiting, parent_based
+  strategy: probabilistic
+  probability: 1.0  # 1.0 = 100% sampling (development), use lower in production
+  traces_per_second: 100  # For rate_limiting strategy
+
+  # Service-specific sampling rates (optional)
+  # service_rates:
+  #   high-volume-service: 0.1
+  #   critical-service: 1.0
+
+# Kafka Export Configuration
+kafka:
+  brokers:
+    - "localhost:9092"
+
+  topics:
+    traces: "pyflare.traces"
+    metrics: "pyflare.metrics"
+    logs: "pyflare.logs"
+
+  producer:
+    batch_size: 16384
+    linger_ms: 5
+    compression: "lz4"  # Options: none, gzip, snappy, lz4, zstd
+    acks: "all"
+    retries: 3
+    retry_backoff_ms: 100
+    enable_idempotence: true
+
+  timeouts:
+    message_timeout_ms: 30000
+    socket_timeout_ms: 60000
+    metadata_timeout_ms: 10000
+
+  # Security (REQUIRED for production Kafka clusters)
+  # SECURITY: Use environment variables for credentials
+  # security:
+  #   protocol: "SASL_SSL"
+  #   ssl:
+  #     ca_location: "${KAFKA_SSL_CA_PATH}"
+  #     cert_location: "${KAFKA_SSL_CERT_PATH}"
+  #     key_location: "${KAFKA_SSL_KEY_PATH}"
+  #   sasl:
+  #     mechanism: "SCRAM-SHA-256"
+  #     username: "${KAFKA_SASL_USERNAME}"
+  #     password: "${KAFKA_SASL_PASSWORD}"
+
+# General Settings
+general:
+  worker_threads: 8
+  health_endpoint: "0.0.0.0:8081"
+  metrics_path: "/metrics"
+  service_name: "pyflare-collector"
+  enable_metrics: true
+
+# Enrichment Settings
+enrichment:
+  add_host_info: true
+  add_process_info: true
+  normalize_timestamps: true
+
+  # Custom attributes added to all spans
+  custom_attributes:
+    environment: "development"
+    # datacenter: "us-west-2"
+
+# Production Security Checklist:
+# [ ] Enable TLS for gRPC (receiver.grpc.tls.enabled: true)
+# [ ] Enable TLS for HTTP (receiver.http.tls.enabled: true)
+# [ ] Restrict CORS origins (receiver.http.cors.allowed_origins)
+# [ ] Configure Kafka SSL/SASL (kafka.security)
+# [ ] Set appropriate rate limits (rate_limit.*)
+# [ ] Reduce sampling rate for high-volume services
+# [ ] Use environment variables for sensitive values
+# [ ] Review and restrict network exposure

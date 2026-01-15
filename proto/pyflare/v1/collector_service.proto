@@ -1,0 +1,39 @@
+// Copyright 2024 PyFlare Contributors
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package pyflare.v1;
+
+import "pyflare/v1/trace.proto";
+
+option cc_enable_arenas = true;
+
+// Service for receiving traces
+service TraceService {
+  // Export spans to the collector
+  rpc Export(ExportTraceServiceRequest) returns (ExportTraceServiceResponse) {}
+}
+
+// Health check service
+service HealthService {
+  // Check service health
+  rpc Check(HealthCheckRequest) returns (HealthCheckResponse) {}
+
+  // Watch for health changes
+  rpc Watch(HealthCheckRequest) returns (stream HealthCheckResponse) {}
+}
+
+message HealthCheckRequest {
+  string service = 1;
+}
+
+message HealthCheckResponse {
+  enum ServingStatus {
+    UNKNOWN = 0;
+    SERVING = 1;
+    NOT_SERVING = 2;
+    SERVICE_UNKNOWN = 3;
+  }
+  ServingStatus status = 1;
+}

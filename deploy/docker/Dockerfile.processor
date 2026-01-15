@@ -1,0 +1,53 @@
+# PyFlare Processor Dockerfile
+
+# Build stage
+FROM ubuntu:22.04 AS builder
+
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    cmake \
+    ninja-build \
+    git \
+    pkg-config \
+    libssl-dev \
+    libsasl2-dev \
+    libzstd-dev \
+    liblz4-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /build
+
+COPY CMakeLists.txt ./
+COPY src/ ./src/
+
+RUN cmake -B build -G Ninja \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DPYFLARE_BUILD_TESTS=OFF \
+    && cmake --build build
+
+# Runtime stage
+FROM ubuntu:22.04
+
+RUN apt-get update && apt-get install -y \
+    libssl3 \
+    libsasl2-2 \
+    libzstd1 \
+    liblz4-1 \
+    python3 \
+    python3-pip \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy binaries
+COPY --from=builder /build/build/lib/*.so* /app/lib/
+COPY --from=builder /build/build/bin/* /app/
+
+# Install Python dependencies for evaluators
+COPY sdk/python/pyproject.toml /app/python/
+RUN pip3 install --no-cache-dir -e /app/python
+
+ENV LD_LIBRARY_PATH=/app/lib
+ENV PYFLARE_LOG_LEVEL=info
+
+ENTRYPOINT ["/app/pyflare_processor"]
