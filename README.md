@@ -4,6 +4,38 @@
 
 PyFlare provides deep observability into AI/ML applications, including traditional ML, deep learning, and LLM applications. It extends the PyFlame ecosystem philosophy - breaking vendor lock-in for AI infrastructure - from training into production monitoring.
 
+## Release
+
+PyFlare is released as a pre-release V1.0.0-alpha and will likely contain bugs. Please use the "issues" tab to report them. Use at your own risk.
+
+## About OA Quantum Labs
+
+PyFlame is developed by **[OA Quantum Labs](https://oaqlabs.com)**, a specialized engineering firm focused on high-performance computing and tooling that breaks vendor lock-in.
+
+### What We Do
+
+In this context We help organizations unlock the full potential of specialized hardware through custom developer tools, optimized frameworks, and performance engineering:
+
+- **Custom Framework Development** — Native tooling designed for your specific accelerator architecture
+- **Performance Optimization** — Squeeze maximum throughput from your existing hardware investments
+- **Migration & Porting** — Adapt existing ML workloads to new accelerator platforms
+- **Training & Enablement** — Get your team productive on specialized hardware faster
+
+### Why Work With Us
+
+PyFlare demonstrates our approach: rather than forcing general-purpose tools onto specialized hardware, we build native solutions that leverage the unique strengths of each architecture. The result is dramatically better performance and a more intuitive developer experience.
+
+If your organization is working with specialized AI accelerators, FPGAs, or custom silicon, we'd love to discuss how purpose-built tooling could transform your development workflow.
+
+### Get In Touch
+
+**Danny Wall** — CTO, OA Quantum Labs
+[dwall@oaqlabs.com](mailto:dwall@oaqlabs.com) | [oaqlabs.com](https://oaqlabs.com)
+
+## Support the Project
+
+We welcome financial support in the effort. Learn how you can help at https://oaqlabs.com/pyflare (bottom of page)
+
 ## Features
 
 - **Deep Model Introspection**: Understand *why* models make specific decisions
