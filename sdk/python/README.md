@@ -4,17 +4,21 @@ OpenTelemetry-native observability SDK for AI/ML workloads.
 
 ## Installation
 
-```bash
-pip install pyflare
-```
-
-With optional integrations:
+Install from the GitHub repository:
 
 ```bash
-pip install pyflare[openai]      # OpenAI integration
-pip install pyflare[langchain]   # LangChain integration
-pip install pyflare[pytorch]     # PyTorch integration
-pip install pyflare[all]         # All integrations
+# Clone the repository
+git clone https://github.com/oaqlabs/pyflare.git
+cd pyflare/sdk/python
+
+# Install the SDK
+pip install -e .
+
+# With optional integrations
+pip install -e ".[openai]"      # OpenAI integration
+pip install -e ".[langchain]"   # LangChain integration
+pip install -e ".[pytorch]"     # PyTorch integration
+pip install -e ".[all]"         # All integrations
 ```
 
 ## Quick Start

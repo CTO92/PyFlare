@@ -180,22 +180,6 @@ source .venv/bin/activate  # Linux/macOS
 pip install -e ".[dev]"
 ```
 
-### Building Distribution Package
-
-```bash
-cd sdk/python
-
-# Install build tools
-pip install build twine
-
-# Build wheel and sdist
-python -m build
-
-# Output in dist/
-# pyflare-1.0.0-py3-none-any.whl
-# pyflare-1.0.0.tar.gz
-```
-
 ### Dependencies
 
 The SDK has minimal core dependencies:
@@ -206,13 +190,14 @@ opentelemetry-sdk>=1.20.0
 opentelemetry-exporter-otlp>=1.20.0
 ```
 
-Optional dependencies for integrations:
+Optional dependencies for integrations (install from repository root):
 
 ```bash
-pip install pyflare[openai]      # OpenAI integration
-pip install pyflare[anthropic]   # Anthropic integration
-pip install pyflare[all]         # All integrations
-pip install pyflare[dev]         # Development dependencies
+cd sdk/python
+pip install -e ".[openai]"      # OpenAI integration
+pip install -e ".[anthropic]"   # Anthropic integration
+pip install -e ".[all]"         # All integrations
+pip install -e ".[dev]"         # Development dependencies
 ```
 
 ---
@@ -491,17 +476,9 @@ PyFlare follows semantic versioning (MAJOR.MINOR.PATCH).
    git push origin v1.0.0
    ```
 
-3. Build and publish Python package:
-   ```bash
-   cd sdk/python
-   python -m build
-   twine upload dist/*
-   ```
-
-4. Build and push Docker images:
+3. Build Docker images:
    ```bash
    docker build -t pyflare-collector:1.0.0 -f deploy/docker/Dockerfile.collector .
-   docker push pyflare-collector:1.0.0
    ```
 
 ---

@@ -109,7 +109,7 @@ class OpenAIInstrumentation:
             )
             raise ImportError(
                 "openai package is required for OpenAI instrumentation. "
-                "Install with: pip install pyflare[openai]"
+                "Install with: pip install -e '.[openai]' from the sdk/python directory"
             )
 
         # Patch sync client methods

@@ -51,7 +51,7 @@ class AnthropicInstrumentation:
         except ImportError:
             raise ImportError(
                 "anthropic package is required for Anthropic instrumentation. "
-                "Install with: pip install pyflare[anthropic]"
+                "Install with: pip install -e '.[anthropic]' from the sdk/python directory"
             )
 
         self._patch_messages_create(anthropic)

@@ -54,7 +54,13 @@ We welcome financial support in the effort. Learn how you can help at https://oa
 ### Python SDK
 
 ```bash
-pip install pyflare
+# Clone the repository
+git clone https://github.com/oaqlabs/pyflare.git
+cd pyflare
+
+# Install the Python SDK from source
+cd sdk/python
+pip install -e .
 ```
 
 ```python
@@ -159,11 +165,12 @@ Access the UI at http://localhost:3000
 # C++ components
 ./scripts/build.sh
 
-# Python SDK
+# Python SDK (from repository root)
 cd sdk/python
 pip install -e ".[dev]"
+cd ../..
 
-# Web UI
+# Web UI (from repository root)
 cd ui
 npm install
 npm run build

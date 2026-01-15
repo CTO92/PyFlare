@@ -66,7 +66,7 @@ class LangChainInstrumentation:
         except ImportError:
             raise ImportError(
                 "langchain-core package is required for LangChain instrumentation. "
-                "Install with: pip install pyflare[langchain]"
+                "Install with: pip install -e '.[langchain]' from the sdk/python directory"
             )
 
         # Create and register callback handler

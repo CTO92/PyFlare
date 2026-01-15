@@ -18,12 +18,17 @@ PyFlare provides:
 ### 1. Install the Python SDK
 
 ```bash
-pip install pyflare
+# Clone the repository
+git clone https://github.com/oaqlabs/pyflare.git
+cd pyflare/sdk/python
+
+# Install the SDK
+pip install -e .
 
 # With optional integrations
-pip install pyflare[openai]      # OpenAI support
-pip install pyflare[anthropic]   # Anthropic support
-pip install pyflare[all]         # All integrations
+pip install -e ".[openai]"      # OpenAI support
+pip install -e ".[anthropic]"   # Anthropic support
+pip install -e ".[all]"         # All integrations
 ```
 
 ### 2. Initialize PyFlare
@@ -76,12 +81,14 @@ This starts:
 - **Query API** on port 8080
 - **Web UI** on port 3000
 
-### Using pip (SDK Only)
+### Installing the SDK Only
 
-If you already have a collector running:
+If you already have a collector running and just need the Python SDK:
 
 ```bash
-pip install pyflare
+git clone https://github.com/oaqlabs/pyflare.git
+cd pyflare/sdk/python
+pip install -e .
 ```
 
 ### Building from Source
