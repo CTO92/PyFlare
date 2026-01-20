@@ -15,6 +15,10 @@ out/
 *.sublime-workspace
 *.sublime-project
 
+# Claude Code
+.claude/
+settings.local.json
+
 # Compiled files
 *.o
 *.obj
@@ -97,10 +101,20 @@ site/
 .env
 .env.local
 .env.*.local
+.env.prod
+.env.production
 *.pem
 *.key
+*.p12
+*.pfx
 secrets.yaml
+secrets.yml
 credentials.json
+**/secrets/
+*.secret
+*.secrets
+api_keys.json
+tokens.json
 
 # Database
 *.db
